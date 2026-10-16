@@ -1,0 +1,7 @@
+﻿timestamp,username,ip_address,event,failed_attempts,risk_level
+2026-10-13 08:00,Ahmed,192.168.1.10,login_success,0,Low
+2026-10-13 08:01,Sara,192.168.1.15,login_failed,1,Low
+2026-10-13 08:02,Guest,192.168.1.50,login_failed,5,Medium
+2026-10-13 08:03,Unknown,192.168.1.99,login_failed,12,High
+2026-10-13 08:04,Ahmed,192.168.1.10,login_success,0,Low
+2026-10-13 08:05,Guest,192.168.1.50,login_failed,8,Medium
