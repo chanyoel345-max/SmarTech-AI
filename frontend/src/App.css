@@ -1494,3 +1494,17 @@ a:focus-visible {
     display: none;
   }
 }
+.forgot-password {
+  background: transparent;
+  border: none;
+  color: #55e6a5;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+
+.forgot-password:hover {
+  color: #8affc9;
+  text-decoration: underline;
+}

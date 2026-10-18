@@ -1,18 +1,24 @@
 
 import { useEffect, useState } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+
+import { auth } from "./firebase";
+import Login from "./Longin";
+import Register from "./Register";
+
 import Overview from "./pages/Overview";
 import Alerts from "./pages/Alerts";
 import SecurityAnalysis from "./pages/SecurityAnalysis";
 import Recommendations from "./pages/Recommendations";
 import LogAnalysis from "./pages/LogAnalysis";
 import SystemStatus from "./pages/SystemStatus";
-import Login from "./pages/Login";
+
 import type { Summary, SecurityAlert, PageId } from "./types";
 import "./App.css";
 
 const API_BASE = (
-import.meta.env.VITE_API_URL || "https://smartech-ai.onrender.com"
-).replace(/\/$/, "");
+  import.meta.env.VITE_API_URL || "https://smartech-ai.onrender.com"
+).replace(/\/+$/, "");
 
 const navigation: { id: PageId; label: string }[] = [
   { id: "overview", label: "نظرة عامة" },
@@ -24,18 +30,41 @@ const navigation: { id: PageId; label: string }[] = [
 ];
 
 export default function App() {
+  const [userChecked, setUserChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [authPage, setAuthPage] = useState<"login" | "register">("login");
+
   const [page, setPage] = useState<PageId>("overview");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadData() {
-    try {
-      setError("");
+  // التحقق من جلسة Firebase عند فتح الموقع
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        setLoggedIn(Boolean(user));
+        setUserChecked(true);
+      },
+      (authError) => {
+        console.error("Firebase authentication error:", authError);
+        setLoggedIn(false);
+        setUserChecked(true);
+      }
+    );
 
-      const [summaryResponse, alertsResponse] = await Promise.all([
+    return unsubscribe;
+  }, []);
+
+  // تحميل بيانات لوحة التحكم
+  async function loadData() {
+    setLoading(true);
+    setError("");
+
+    try {
+    const [summaryResponse, alertsResponse] = await Promise.all([
         fetch(`${API_BASE}/api/summary`),
         fetch(`${API_BASE}/api/alerts`),
       ]);
@@ -48,18 +77,20 @@ export default function App() {
       const alertsData: SecurityAlert[] = await alertsResponse.json();
 
       setSummary(summaryData);
-    setAlerts(alertsData);
-    } catch {
-      setError(
-        "تعذر الاتصال بالخادم. تحققي من تشغيل الباك إند ورابط API."
-      );
+      setAlerts(alertsData);
+    } catch (err) {
+      console.error("Data loading error:", err);
+      setError("تعذر تحميل البيانات من الخادم. تحققي من اتصال API.");
     } finally {
       setLoading(false);
     }
   }
 
+  // تحميل البيانات عند تسجيل الدخول وتحديثها كل 30 ثانية
   useEffect(() => {
-    if (!loggedIn) return;
+    if (!loggedIn) {
+      return;
+    }
 
     void loadData();
 
@@ -70,12 +101,20 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [loggedIn]);
 
-  function handleLogout() {
-    setLoggedIn(false);
-    setPage("overview");
-    setError("");
+  // تسجيل الخروج من Firebase
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      setPage("overview");
+      setAuthPage("login");
+      setError("");
+    } catch (err) {
+      console.error("Logout error:", err);
+      setError("تعذر تسجيل الخروج. حاولي مرة أخرى.");
+    }
   }
 
+  // تحديد الصفحة التي ستظهر
   function renderPage() {
     switch (page) {
       case "analysis":
@@ -85,9 +124,7 @@ export default function App() {
         return <Alerts alerts={alerts} loading={loading} />;
 
       case "recommendations":
-        return (
-          <Recommendations alerts={alerts} loading={loading} />
-        );
+        return <Recommendations alerts={alerts} loading={loading} />;
 
       case "logs":
         return <LogAnalysis alerts={alerts} loading={loading} />;
@@ -106,10 +143,45 @@ export default function App() {
     }
   }
 
-  if (!loggedIn) {
-    return <Login onLogin={() => setLoggedIn(true)} />;
+  // شاشة التحقق من الجلسة
+  if (!userChecked) {
+    return (
+      <main
+        dir="rtl"
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          background: "#080d18",
+          color: "#55e6a5",
+          fontFamily: "Tahoma, Arial, sans-serif",
+        }}
+      >
+        جارٍ التحقق من تسجيل الدخول...
+      </main>
+    );
   }
 
+  // صفحة الدخول أو إنشاء الحساب
+  if (!loggedIn) {
+    if (authPage === "register") {
+      return (
+        <Register
+          onRegister={() => setLoggedIn(true)}
+          onGoToLogin={() => setAuthPage("login")}
+        />
+      );
+    }
+
+    return (
+      <Login
+        onLogin={() => setLoggedIn(true)}
+        onGoToRegister={() => setAuthPage("register")}
+      />
+    );
+  }
+
+  // لوحة التحكم الرئيسية
   return (
     <div className="app-shell" dir="rtl">
       <aside className="sidebar">
@@ -148,7 +220,7 @@ export default function App() {
         <button
           type="button"
           className="secondary-button"
-          onClick={handleLogout}
+          onClick={() => void handleLogout()}
         >
           تسجيل الخروج
         </button>
