@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 import { auth } from "./firebase";
@@ -40,8 +40,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // التحقق من جلسة Firebase عند فتح الموقع
-  useEffect(() => {
+useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
       (user) => {
@@ -58,61 +57,67 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // تحميل بيانات لوحة التحكم
+  const loadData = useCallback(async () => {
+    const user = auth.currentUser;
 
-async function loadData() {
-  const user = auth.currentUser;
-
-  if (!user) {
-    setSummary(null);
-    setAlerts([]);
-    setError("سجّلي الدخول أولًا لتحميل البيانات.");
-    return;
-  }
-
-  setLoading(true);
-  setError("");
-
-  try {
-    const token = await user.getIdToken();
-
-    const headers = {
-      Authorization: `Bearer ${token}`,
-    };
-
-    const [summaryResponse, alertsResponse] = await Promise.all([
-      fetch(`${API_BASE}/api/summary`, { headers }),
-      fetch(`${API_BASE}/api/alerts`, { headers }),
-    ]);
-
-    if (summaryResponse.status === 401 || alertsResponse.status === 401) {
-      throw new Error("انتهت صلاحية التحقق. سجّلي الخروج ثم ادخلي مرة أخرى.");
+    if (!user) {
+      setSummary(null);
+      setAlerts([]);
+      setError("انتهت جلسة تسجيل الدخول. سجّلي الدخول مرة أخرى.");
+      return;
     }
 
-    if (!summaryResponse.ok || !alertsResponse.ok) {
-      throw new Error("تعذر تحميل بيانات الخادم.");
+    setLoading(true);
+    setError("");
+
+    try {
+      const token = await user.getIdToken();
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+
+      const [summaryResponse, alertsResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/summary`, { headers }),
+        fetch(`${API_BASE}/api/alerts`, { headers }),
+      ]);
+
+      if (
+        summaryResponse.status === 401 ||
+        alertsResponse.status === 401
+      ) {
+        throw new Error(
+          "رفض الخادم رمز المصادقة. سجّلي الخروج ثم الدخول مرة أخرى، وإذا استمرت المشكلة نراجع إعداد Firebase Admin."
+        );
+      }
+
+      if (!summaryResponse.ok || !alertsResponse.ok) {
+        throw new Error(
+          `تعذر تحميل البيانات. حالة الملخص: ${summaryResponse.status}، حالة التنبيهات: ${alertsResponse.status}.`
+        );
+      }
+
+      const summaryData: Summary = await summaryResponse.json();
+      const alertsData: SecurityAlert[] = await alertsResponse.json();
+
+      setSummary(summaryData);
+      setAlerts(alertsData);
+    } catch (err) {
+      console.error("Data loading error:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "تعذر تحميل البيانات من الخادم."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    const summaryData: Summary = await summaryResponse.json();
-    const alertsData: SecurityAlert[] = await alertsResponse.json();
-
-    setSummary(summaryData);
-    setAlerts(alertsData);
-  } catch (err) {
-    console.error("Data loading error:", err);
-    setError(
-      err instanceof Error
-        ? err.message
-        : "تعذر تحميل البيانات من الخادم."
-    );
-  } finally {
-    setLoading(false);
-  }
-}
-
-  // تحميل البيانات عند تسجيل الدخول وتحديثها كل 30 ثانية
+  }, []);
   useEffect(() => {
     if (!loggedIn) {
+      setSummary(null);
+      setAlerts([]);
       return;
     }
 
@@ -123,14 +128,15 @@ async function loadData() {
     }, 30000);
 
     return () => window.clearInterval(timer);
-  }, [loggedIn]);
+  }, [loggedIn, loadData]);
 
-  // تسجيل الخروج من Firebase
-  async function handleLogout() {
+async function handleLogout() {
     try {
       await signOut(auth);
       setPage("overview");
       setAuthPage("login");
+      setSummary(null);
+      setAlerts([]);
       setError("");
     } catch (err) {
       console.error("Logout error:", err);
@@ -138,8 +144,7 @@ async function loadData() {
     }
   }
 
-  // تحديد الصفحة التي ستظهر
-  function renderPage() {
+function renderPage() {
     switch (page) {
       case "analysis":
         return <SecurityAnalysis alerts={alerts} loading={loading} />;
@@ -167,8 +172,7 @@ async function loadData() {
     }
   }
 
-  // شاشة التحقق من الجلسة
-  if (!userChecked) {
+if (!userChecked) {
     return (
       <main
         dir="rtl"
@@ -185,9 +189,7 @@ async function loadData() {
       </main>
     );
   }
-
-  // صفحة الدخول أو إنشاء الحساب
-  if (!loggedIn) {
+if (!loggedIn) {
     if (authPage === "register") {
       return (
         <Register
@@ -204,9 +206,7 @@ async function loadData() {
       />
     );
   }
-
-  // لوحة التحكم الرئيسية
-  return (
+return (
     <div className="app-shell" dir="rtl">
       <aside className="sidebar">
         <div className="brand">
