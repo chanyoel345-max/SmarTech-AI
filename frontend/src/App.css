@@ -1,12 +1,18 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap");
 
+/* =========================
+  1. الألوان والإعدادات العامة
+========================= */
+
 :root {
   font-family: "Cairo", Tahoma, sans-serif;
   color: #e8edf5;
   background: #090e17;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+
   --bg: #090e17;
   --sidebar: #0d1420;
   --panel: #111b29;
@@ -17,6 +23,7 @@
   --green: #3dd6a0;
   --red: #fb626b;
   --orange: #f5b94c;
+  --blue: #7db5f0;
 }
 
 * {
@@ -24,17 +31,32 @@
 }
 
 html {
+  min-width: 320px;
+  min-height: 100%;
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  min-height: 100vh;
   background: var(--bg);
+  color: var(--text);
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: "Cairo", Tahoma, sans-serif;
 }
 
 button,
-a {
+a,
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -42,75 +64,194 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+a {
+  color: var(--green);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: #f0f5fc;
+}
+
+p {
+  line-height: 1.8;
+}
+
+::selection {
+  color: #07120e;
+  background: var(--green);
+}
+
+/* =========================
+  2. الهيكل الرئيسي
+========================= */
+
+.app-shell,
 .dashboard {
   min-height: 100vh;
   display: flex;
+  direction: rtl;
   background:
-    radial-gradient(ellipse at 70% 0%, #152438 0%, transparent 40%),
+    radial-gradient(
+      ellipse at 68% 0%,
+      rgba(35, 61, 91, 0.36),
+      transparent 44%
+    ),
     var(--bg);
 }
 
-.sidebar {
-  width: 250px;
-  flex-shrink: 0;
-  padding: 27px 17px;
-  background: var(--sidebar);
-  border-left: 1px solid var(--border);
+.main-area,
+.main-content {
+  flex: 1;
+  min-width: 0;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 28px clamp(18px, 3vw, 42px);
+}
+
+.main-area {
   display: flex;
   flex-direction: column;
+  width: 100%;
+}
+
+.page-container,
+.page-content {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+}
+
+.page-container {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+
+.page-header,
+.page-intro {
+  margin-bottom: 4px;
+}
+
+.page-header h1,
+.page-intro h1,
+.page-intro h2 {
+  margin: 5px 0 8px;
+  font-size: clamp(23px, 2vw, 32px);
+  font-weight: 800;
+}
+
+.page-header p,
+.page-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* =========================
+  3. القائمة الجانبية
+========================= */
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  width: 250px;
+  height: 100vh;
+  min-height: 550px;
+  flex-shrink: 0;
+  padding: 25px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  background: var(--sidebar);
+  border-left: 1px solid var(--border);
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 5px 27px;
-  border-bottom: 1px solid #202c3c;
-  margin-bottom: 30px;
+  padding: 4px 6px 24px;
+  margin-bottom: 5px;
+border-bottom: 1px solid #202c3c;
 }
 
-.brand-icon {
-  width: 46px;
-  height: 46px;
+.brand-mark,
+.brand-icon,
+.avatar {
   display: grid;
   place-items: center;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 12px;
   background: #123c31;
   color: #71f0bd;
-  font-size: 25px;
-  font-weight: 800;
-  box-shadow: inset 0 0 0 1px #28624d;
+  border: 1px solid #28624d;
+  font-size: 22px;
+font-weight: 800;
 }
 
+.brand strong,
 .brand h2,
+.brand span,
 .brand small {
   display: block;
   margin: 0;
 }
 
+.brand strong,
 .brand h2 {
-  font-size: 21px;
-  letter-spacing: 0.3px;
+  color: #f0f5fc;
+  font-size: 19px;
+  font-weight: 800;
 }
 
+.brand span,
 .brand small {
+  margin-top: 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .sidebar-label,
-.eyebrow {
-  color: #70dcb1;
+.nav-caption {
+  margin: 0 10px 4px;
+  color: var(--green);
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
+  font-weight: 700;}
 
-.sidebar-label {
-  margin: 0 12px 12px;
-}
-
-.sidebar nav {
+.sidebar nav,
+.navigation {
   display: grid;
   gap: 7px;
 }
@@ -119,25 +260,31 @@ button {
   display: flex;
   align-items: center;
   gap: 11px;
-  text-decoration: none;
-  color: #adbbcf;
-  padding: 12px 13px;
+  width: 100%;
+  padding: 12px;
   border: 1px solid transparent;
-  border-radius: 9px;
-  font-size: 13px;
-  transition: background 0.2s, color 0.2s;
+  border-radius: 10px;
+  background: transparent;
+  color: #adbbcf;
+  text-align: right;
+  text-decoration: none;
+  font-size: 12px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
-.nav-link > span:first-child {
-  width: 21px;
-  text-align: center;
+.nav-link > span:first-child,
+.nav-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 23px;
+  flex-shrink: 0;
   color: #8ca2ba;
   font-size: 17px;
 }
 
 .nav-link:hover {
   background: #152335;
-  color: #ffffff;
+  color: #fff;
 }
 
 .nav-link.active {
@@ -146,26 +293,30 @@ button {
   border-color: #235340;
 }
 
-.nav-link.active > span:first-child {
+.nav-link.active > span:first-child,
+.nav-link.active .nav-icon {
   color: #7df0bd;
 }
 
 .nav-count {
   margin-right: auto;
+  padding: 2px 7px;
   border-radius: 6px;
   background: #44252e;
   color: #ff9aa0;
-  padding: 2px 7px;
-  font-size: 11px;
+font-size: 11px;
 }
 
-.sidebar-footer {
-  margin-top: auto;
-  padding: 17px 8px 0;
-  border-top: 1px solid #202c3c;
+.sidebar-footer,
+.sidebar-bottom {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: auto;
+  padding: 16px 8px 0;
+  border-top: 1px solid #202c3c;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .sidebar-footer strong,
@@ -174,12 +325,12 @@ button {
 }
 
 .sidebar-footer strong {
+  color: var(--text);
   font-size: 12px;
 }
 
 .sidebar-footer small {
-  margin-top: 3px;
-  color: var(--muted);
+    margin-top: 3px;
   font-size: 10px;
 }
 
@@ -187,10 +338,10 @@ button {
   display: inline-block;
   width: 9px;
   height: 9px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: var(--green);
-  box-shadow: 0 0 10px #3dd6a055;
-  flex-shrink: 0;
+box-shadow: 0 0 10px #3dd6a055;
 }
 
 .status-dot.offline {
@@ -198,97 +349,115 @@ button {
   box-shadow: 0 0 10px #fb626b55;
 }
 
-.main-content {
-  flex: 1;
-  min-width: 0;
-  max-width: 1800px;
-  padding: 31px clamp(18px, 3vw, 43px);
-  margin: 0 auto;
+.status-dot.online {
+  background: var(--green);
 }
+
+/* =========================
+4. الشريط العلوي
+========================= */
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
+display: flex;
   align-items: center;
-  gap: 22px;
-  margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid #202c3c;
-}
-
-.eyebrow {
-  margin-bottom: 8px;
-}
-
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 0 24px;
+  margin-bottom: 25px;
+  border-bottom: 1px solid #202c3c;}
 .topbar h1 {
-  font-size: clamp(24px, 2vw, 31px);
-  margin: 0 0 5px;
-  font-weight: 800;
+  margin: 5px 0;
+  font-size: clamp(22px, 2vw, 31px);
 }
 
-.topbar p,
-.section-heading p,
-.panel-heading p {
-  color: var(--muted);
+.topbar p {
   margin: 0;
+  color: var(--muted);
   font-size: 12px;
 }
 
-.topbar-actions {
+.topbar-actions,
+.topbar-meta {
   display: flex;
-  align-items: center;
-  gap: 10px;
+align-items: center;
   flex-wrap: wrap;
+  gap: 10px;
 }
 
-.connection-badge {
+.connection-badge,
+.connection-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 12px;
-  color: #7df0bd;
-  background: #143328;
+padding: 9px 12px;
   border: 1px solid #285841;
   border-radius: 9px;
+  background: #143328;
+  color: #7df0bd;
   font-size: 11px;
   white-space: nowrap;
 }
 
 .connection-badge.disconnected {
-  color: #ff9aa0;
+border-color: #713944;
   background: #3a2028;
-  border-color: #713944;
+  color: #ff9aa0;
 }
 
-.refresh-button {
-  color: #e8edf5;
-  background: #172638;
-  border: 1px solid #31455e;
-  padding: 9px 13px;
+.refresh-button,
+.secondary-button,
+.primary-button {
+  padding: 10px 14px;
   border-radius: 9px;
-  font-size: 11px;
+  font-size: 12px;
+  transition: background 0.2s, border-color 0.2s;
 }
 
-.refresh-button:hover {
+.refresh-button,
+.secondary-button {
+  border: 1px solid #31455e;
+  background: #172638;
+  color: #e8edf5;
+}
+
+.refresh-button:hover,
+.secondary-button:hover {
   background: #20364d;
+  border-color: #49627e;
 }
 
-.refresh-button:disabled {
-  opacity: 0.65;
-  cursor: wait;
+.primary-button {
+  border: 1px solid #2b8d6b;
+  background: #1b4938;
+  color: #a5f4d0;
+  font-weight: 700;
 }
+
+.primary-button:hover {
+  background: #245c46;
+}
+
+/* =========================
+  5. عناوين الأقسام
+========================= */
 
 .section-heading {
   display: flex;
+align-items: center;
   justify-content: space-between;
-  align-items: center;
   gap: 14px;
   margin: 0 0 17px;
 }
 
 .section-heading h2 {
+margin: 0 0 4px;
   font-size: 17px;
-  margin: 0 0 4px;
+}
+
+.section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .section-heading > span,
@@ -304,20 +473,39 @@ button {
   background: #111b28;
 }
 
+/* =========================
+  6. بطاقات الإحصائيات
+========================= */
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 13px;
 }
 
+.stats-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.stat-card,
+.dashboard-card,
+.panel {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #29394d;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #152233, #101925);
+}
+
 .stat-card {
   position: relative;
-  overflow: hidden;
-  min-width: 0;
-  padding: 18px;
-  background: linear-gradient(145deg, #152233, #101925);
-  border: 1px solid #28384d;
-  border-radius: 13px;
+overflow: hidden;
   transition: transform 0.2s, border-color 0.2s;
 }
 
@@ -327,17 +515,17 @@ button {
 }
 
 .stat-card::after {
-  content: "";
-  position: absolute;
+position: absolute;
   right: 0;
   bottom: 0;
   width: 100%;
   height: 2px;
   background: #50677e;
-  opacity: 0.7;
+  content: "";
 }
 
-.stat-card.danger::after {
+.stat-card.danger::after,
+.stat-card.high::after {
   background: var(--red);
 }
 
@@ -346,7 +534,8 @@ button {
   background: var(--orange);
 }
 
-.stat-card.safe::after {
+.stat-card.safe::after,
+.stat-card.low::after {
   background: var(--green);
 }
 
@@ -363,36 +552,55 @@ button {
 .stat-icon {
   display: grid;
   place-items: center;
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  color: #73e9b9;
-  background: #1a382f;
+  width: 36px;
+  height: 36px;
+flex-shrink: 0;
   border: 1px solid #254b3e;
   border-radius: 9px;
+  background: #1a382f;
+  color: #73e9b9;
   font-size: 17px;
 }
 
-.stat-card.danger .stat-icon {
-  color: #ff969d;
-  background: #3a2028;
-  border-color: #61313c;
-}
-
+.stat-icon.amber,
 .stat-card.medium .stat-icon,
 .stat-card.warning .stat-icon {
-  color: #ffd078;
-  background: #3a3020;
   border-color: #5b4929;
+  background: #3a3020;
+  color: #ffd078;
 }
 
-.stat-card strong {
-  display: block;
-  font-size: clamp(27px, 2.5vw, 36px);
-  line-height: 1.3;
-  margin: 18px 0 7px;
-  font-weight: 800;
+.stat-icon.red,
+.stat-card.danger .stat-icon {
+border-color: #61313c;
+  background: #3a2028;
+  color: #ff969d;
+}
+
+.stat-icon.purple {
+  border-color: #493b68;
+  background: #302641;
+  color: #c5a4ff;
+}
+
+.stat-card strong,
+.dashboard-card > p:not(:first-child) {
   font-variant-numeric: tabular-nums;
+}
+
+.stat-card > strong {
+display: block;
+  margin: 18px 0 7px;
+  color: #f0f5fc;
+  font-size: clamp(27px, 2.5vw, 36px);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.stat-card p {
+  margin: 10px 0;
+  color: #aebed2;
+  font-size: 12px;
 }
 
 .stat-card small {
@@ -402,38 +610,58 @@ button {
   line-height: 1.7;
 }
 
+.dashboard-card h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+
+.dashboard-card p,
+.dashboard-card li {
+  color: #afbed1;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.dashboard-card ul {
+  padding-right: 22px;
+}
+
+/* =========================
+  7. الرسوم والتحليلات
+========================= */
+
 .analytics-section,
 .alerts-section,
 .recommendations-panel {
-  margin-top: 31px;
+  margin-top: 28px;
 }
 
-.analytics-grid {
+.analytics-grid,
+.content-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 15px;
-}
-
-.panel,
-.recommendations-panel {
-  min-width: 0;
-  padding: 21px;
-  background: linear-gradient(145deg, #121d2b, #101824);
-  border: 1px solid #29394d;
-  border-radius: 13px;
-}
+  gap: 15px;}
 
 .panel-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 23px;
+  margin-bottom: 22px;
 }
 
-.panel-heading h3 {
+.panel-heading h3,
+.panel h3 {
+  margin: 0 0 6px;
   font-size: 14px;
-  margin: 0 0 5px;
+}
+
+.panel-heading p,
+.panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
 }
 
 .panel-mark {
@@ -441,6 +669,7 @@ button {
   place-items: center;
   min-width: 30px;
   height: 28px;
+  padding: 0 7px;
   border-radius: 7px;
   background: #1c2c3e;
   color: #88a0ba;
@@ -448,30 +677,30 @@ button {
 }
 
 .risk-chart-layout {
-  min-height: 175px;
-  display: flex;
-  justify-content: center;
+display: flex;
   align-items: center;
+  justify-content: center;
   gap: clamp(20px, 4vw, 50px);
+  min-height: 175px;
 }
 
 .risk-donut {
-  width: 156px;
-  height: 156px;
-  flex-shrink: 0;
+  position: relative;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  position: relative;
+  width: 156px;
+  height: 156px;
+flex-shrink: 0;
+border-radius: 50%;
 }
 
 .risk-donut::before {
-  content: "";
-  position: absolute;
+position: absolute;
   inset: 15px;
-  background: #121d2b;
-  border: 1px solid #26364a;
+border: 1px solid #26364a;
   border-radius: 50%;
+  background: #121d2b;
+  content: "";
 }
 
 .donut-center {
@@ -494,7 +723,7 @@ button {
 
 .risk-legend {
   display: grid;
-  gap: 17px;
+  gap: 16px;
   min-width: 100px;
 }
 
@@ -508,7 +737,7 @@ button {
 }
 
 .legend-row strong {
-  color: #ffffff;
+  color: #fff;
   font-size: 13px;
 }
 
@@ -532,12 +761,18 @@ button {
 
 .bar-chart {
   display: grid;
-  gap: 24px;
+  gap: 22px;
   padding: 8px 0;
 }
 
-.bar-label {
+.bar-item {
+  margin: 17px 0;
+}
+
+.bar-label,
+.bar-caption {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 9px;
@@ -566,6 +801,7 @@ button {
   height: 100%;
   min-width: 0;
   border-radius: 10px;
+  background: linear-gradient(90deg, #238d70, var(--green));
   transition: width 0.4s ease;
 }
 
@@ -581,11 +817,9 @@ button {
   background: linear-gradient(90deg, #238d70, var(--green));
 }
 
-.chart-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-top: 25px;
+.chart-note,
+.data-note {
+  margin-top: 20px;
   padding-top: 13px;
   border-top: 1px solid #263448;
   color: #91a3ba;
@@ -593,22 +827,24 @@ button {
   line-height: 1.8;
 }
 
-.chart-note .status-dot {
-  margin-top: 5px;
-  width: 7px;
-  height: 7px;
+.chart-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-.alert-counter {
-  padding: 7px 10px;
-  color: #ffb0b4 !important;
-  background: #38212a;
-  border: 1px solid #62313d;
-  border-radius: 8px;
-  white-space: nowrap;
+.chart-note .status-dot {
+width: 7px;
+  height: 7px;
+  margin-top: 5px;
 }
+
+/* =========================
+  8. الجداول
+========================= */
 
 .table-container {
+  width: 100%;
   overflow-x: auto;
   border: 1px solid #29394d;
   border-radius: 12px;
@@ -624,15 +860,15 @@ table {
 
 th,
 td {
-  padding: 15px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid #273548;
   vertical-align: middle;
 }
 
 th {
-  color: #afc0d5;
-  font-weight: 600;
   background: #182638;
+  color: #afc0d5;
+    font-weight: 600;
   white-space: nowrap;
 }
 
@@ -652,6 +888,12 @@ tbody tr:last-child td {
   border-bottom: 0;
 }
 
+td code {
+  color: #b9d5f4;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}
+
 .user-cell {
   display: flex;
   align-items: center;
@@ -664,9 +906,9 @@ tbody tr:last-child td {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  border-radius: 8px;
-  color: #a5d9ff;
+border-radius: 8px;
   background: #20364d;
+  color: #a5d9ff;
   font-size: 11px;
   font-weight: 700;
 }
@@ -675,42 +917,8 @@ tbody tr:last-child td {
   font-size: 12px;
 }
 
-td code {
-  color: #b9d5f4;
-  font-family: Consolas, monospace;
-  font-size: 12px;
-}
-
-.risk {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px 10px;
-  border-radius: 7px;
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.risk.high {
-  color: #ff9da4;
-  background: #3b2029;
-  border: 1px solid #67313d;
-}
-
-.risk.medium {
-  color: #ffd27c;
-  background: #3a3020;
-  border: 1px solid #5d4928;
-}
-
-.risk.low {
-  color: #7ce9bd;
-  background: #17372e;
-  border: 1px solid #285541;
-}
-
 .recommendation-cell {
-  min-width: 250px;
+  min-width: 200px;
   max-width: 390px;
   color: #afbed1;
   line-height: 1.9;
@@ -718,10 +926,61 @@ td code {
 }
 
 .empty-state {
-  text-align: center;
   padding: 30px;
   color: var(--muted);
+  text-align: center;
 }
+
+.alert-counter {
+  padding: 7px 10px;
+  border: 1px solid #62313d;
+  border-radius: 8px;
+  background: #38212a;
+  color: #ffb0b4 !important;
+  white-space: nowrap;
+}
+
+/* =========================
+  9. مستويات الخطورة
+========================= */
+
+.risk,
+.risk-badge,
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.risk.high,
+.risk-badge.high {
+  border-color: #67313d;
+  background: #3b2029;
+  color: #ff9da4;
+}
+
+.risk.medium,
+.risk-badge.medium {
+  border-color: #5d4928;
+  background: #3a3020;
+  color: #ffd27c;
+}
+
+.risk.low,
+.risk-badge.low {
+  border-color: #285541;
+  background: #17372e;
+  color: #7ce9bd;
+}
+
+/* =========================
+  10. التوصيات والأولويات
+========================= */
 
 .priority-list {
   display: grid;
@@ -748,12 +1007,12 @@ td code {
 .priority-number {
   display: grid;
   place-items: center;
-  flex-shrink: 0;
-  width: 34px;
+width: 34px;
   height: 34px;
-  color: #9db4cd;
-  background: #1d2d40;
+  flex-shrink: 0;
   border-radius: 9px;
+  background: #1d2d40;
+  color: #9db4cd;
   font-size: 11px;
   font-weight: 700;
 }
@@ -781,16 +1040,149 @@ td code {
   font-size: 12px;
 }
 
-.system-panel {
-  margin-top: 25px;
-  padding: 18px 20px;
+.recommendations-panel {
+  padding: 21px;
   border: 1px solid #29394d;
-  border-radius: 12px;
-  background: #111b28;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #121d2b, #101824);
+}
+
+/* =========================
+  11. النماذج والبحث
+========================= */
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid #31445b;
+  border-radius: 9px;
+  outline: none;
+  background: #0e1724;
+  color: var(--text);
+  font-size: 12px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #8193aa;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px #3dd6a01c;
+}
+
+label {
+  display: block;
+  margin: 12px 0 7px;
+  color: #c7d4e3;
+  font-size: 12px;
+}
+
+select option {
+  background: #111b29;
+  color: var(--text);
+}
+
+.assistant-panel {
+  display: grid;
+  gap: 14px;
+  max-width: 900px;
+}
+
+.assistant-panel textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.8;
+}
+
+.answer-box,
+.notice-panel {
+  padding: 14px 16px;
+  border: 1px solid #34485e;
+  border-radius: 10px;
+  background: #172333;
+  color: #bfd0e3;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.answer-box {
+  white-space: pre-wrap;
+}
+
+.answer-box p {
+  white-space: pre-wrap;
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 13px 16px;
+  border: 1px solid #713b45;
+  border-radius: 10px;
+  background: #38212a;
+  color: #ffb2b8;
+  font-size: 12px;
+}
+
+.error-banner span {
+  flex: 1;
+}
+
+.error-banner button {
+  padding: 6px 10px;
+  border: 1px solid #8a4a56;
+  border-radius: 7px;
+  background: transparent;
+  color: #ffe2e4;
+  font-size: 11px;
+}
+
+/* =========================
+  12. الشبكة والبنية التحتية
+========================= */
+
+.network-card h3,
+.task-card h3 {
+  margin-top: 14px;
+}
+
+.network-symbol {
+  color: var(--green);
+  font-size: 25px;
+}
+
+.code-line {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border-radius: 8px;
+  background: #0b111a;
+  color: #9cebc8;
+  direction: ltr;
+  text-align: left;
+  font-family: Consolas, monospace;
+}
+
+.system-panel {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 15px;
+  margin-top: 25px;
+  padding: 18px 20px;
+  border: 1px solid #29394d;
+  border-radius: 12px;
+background: #111b28;
 }
 
 .system-status-title {
@@ -800,7 +1192,9 @@ td code {
 }
 
 .system-status-title strong,
-.system-status-title small {
+.system-status-title small,
+.system-status-details span,
+.system-status-details small {
   display: block;
 }
 
@@ -808,85 +1202,97 @@ td code {
   font-size: 12px;
 }
 
-.system-status-title small {
+.system-status-title small,
+.system-status-details small {
   margin-top: 4px;
   color: var(--muted);
   font-size: 10px;
 }
 
 .system-status-details {
-  text-align: left;
-}
-
-.system-status-details span,
-.system-status-details small {
-  display: block;
-}
+  text-align: left;}
 
 .system-status-details span {
   color: var(--green);
   font-size: 12px;
 }
 
-.system-status-details small {
-  color: var(--muted);
-  font-size: 10px;
-  margin-top: 5px;
+.data-table {
+  display: grid;
 }
 
-.error-banner {
+.data-table-row {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  background: #38212a;
-  color: #ffb2b8;
-  border: 1px solid #713b45;
-  padding: 13px 16px;
-  border-radius: 10px;
-  margin-bottom: 22px;
-  font-size: 12px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid #263448;
+  font-size: 13px;
 }
 
-.error-banner span {
-  flex: 1;
+.data-table-row:last-child {
+  border-bottom: 0;
 }
 
-.error-banner button {
-  border: 1px solid #8a4a56;
-  color: #ffe2e4;
-  background: transparent;
-  border-radius: 7px;
-  padding: 6px 10px;
-  font-size: 11px;
+.data-table-row span {
+  color: #9fb2c6;
 }
 
+.data-table-row strong {
+  direction: ltr;
+}
+
+/* =========================
+  13. التذييل
+========================= */
+
+.app-footer,
 footer {
   display: flex;
+  align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: 9px 15px;
-  text-align: center;
-  color: #8596ad;
-  font-size: 10px;
-  margin-top: 30px;
+margin-top: 30px;
   padding: 20px 0 5px;
   border-top: 1px solid #202c3c;
+  color: #8596ad;
+  text-align: center;
+  font-size: 10px;
 }
 
+.app-footer strong,
 footer strong {
   color: #80e9bb;
 }
 
-@media (min-width: 1500px) {
-  .stats-grid {
-    gap: 17px;
-  }
+.app-footer span {
+  color: #8596ad;
+}
 
-  .stat-card {
-    padding: 22px;
+/* =========================
+  14. تحسينات الوصول
+========================= */
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
+
+/* =========================
+  15. الشاشات المتوسطة
+========================= */
 
 @media (max-width: 1250px) {
   .sidebar {
@@ -897,25 +1303,35 @@ footer strong {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .analytics-grid {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-grid,
+  .content-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 800px) {
+  .app-shell,
   .dashboard {
     display: block;
   }
 
   .sidebar {
+    position: relative;
     width: 100%;
+    height: auto;
+    min-height: 0;
     padding: 16px;
+    overflow: visible;
     border-left: 0;
     border-bottom: 1px solid var(--border);
   }
 
   .brand {
-    margin-bottom: 16px;
+    margin-bottom: 5px;
     padding-bottom: 15px;
   }
 
@@ -923,6 +1339,7 @@ footer strong {
     display: none;
   }
 
+  .navigation,
   .sidebar nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
@@ -933,32 +1350,66 @@ footer strong {
     font-size: 11px;
   }
 
-  .sidebar-footer {
-    margin-top: 16px;
+  .sidebar-footer,
+  .sidebar-bottom {
+    margin-top: 4px;
   }
 
+  .main-area,
   .main-content {
-    padding: 23px 16px;
+    padding: 22px 16px;
   }
 
   .topbar {
     align-items: flex-start;
     flex-direction: column;
-    margin-bottom: 25px;
+    margin-bottom: 22px;
   }
 
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-footer {
+    padding: 15px 0;
+  }
 }
 
+/* =========================
+  16. الجوال
+========================= */
+
 @media (max-width: 480px) {
-  .stats-grid {
-    grid-template-columns: 1fr 1fr;
+  .main-area,
+  .main-content {
+    padding: 18px 12px;
+  }
+
+  .page-container {
+    gap: 18px;
+  }
+
+  .page-header h1,
+  .page-intro h1,
+  .page-intro h2 {
+    font-size: 22px;
+  }
+
+  .stats-grid,
+  .stats-grid.three,
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
   }
 
-  .stat-card {
+  .stat-card,
+  .dashboard-card,
+  .panel,
+  .recommendations-panel {
     padding: 13px;
   }
 
@@ -966,7 +1417,7 @@ footer strong {
     font-size: 10px;
   }
 
-  .stat-card strong {
+  .stat-card > strong {
     font-size: 27px;
   }
 
@@ -976,6 +1427,7 @@ footer strong {
   }
 
   .risk-chart-layout {
+    flex-wrap: wrap;
     gap: 17px;
   }
 
@@ -993,9 +1445,9 @@ footer strong {
     gap: 13px;
   }
 
-  .panel,
-  .recommendations-panel {
-    padding: 15px;
+  th,
+  td {
+    padding: 11px 12px;
   }
 
   .priority-item {
@@ -1017,5 +1469,28 @@ footer strong {
 
   .system-status-details {
     text-align: right;
+  }
+
+  .app-footer {
+    align-items: center;
+    flex-direction: column;
+    padding: 14px 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .stats-grid,
+  .stats-grid.three,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .navigation,
+  .sidebar nav {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-meta .avatar {
+    display: none;
   }
 }

@@ -1019,3 +1019,4 @@ footer strong {
     text-align: right;
   }
 }
+*{box-sizing:border-box}html{min-width:320px;background:#0b1110}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#0b1110;color:#edf5f0;font-synthesis:none;text-rendering:optimizeLegibility}button,input,textarea{font:inherit}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #b6f36b;outline-offset:3px}a{color:inherit}::selection{background:#b6f36b;color:#142015}
