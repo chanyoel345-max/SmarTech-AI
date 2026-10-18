@@ -1,4 +1,11 @@
 fastapi
-uvicorn
+uvicorn[standard]
+python-multipart
+pydantic
+python-dotenv
+requests
+pypdf
+SQLAlchemy
+python-docx
 pandas
-scikit-learn
+firebase-admincd

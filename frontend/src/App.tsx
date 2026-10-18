@@ -59,32 +59,56 @@ export default function App() {
   }, []);
 
   // تحميل بيانات لوحة التحكم
-  async function loadData() {
-    setLoading(true);
-    setError("");
 
-    try {
-    const [summaryResponse, alertsResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/summary`),
-        fetch(`${API_BASE}/api/alerts`),
-      ]);
+async function loadData() {
+  const user = auth.currentUser;
 
-      if (!summaryResponse.ok || !alertsResponse.ok) {
-        throw new Error("تعذر تحميل بيانات الخادم.");
-      }
-
-      const summaryData: Summary = await summaryResponse.json();
-      const alertsData: SecurityAlert[] = await alertsResponse.json();
-
-      setSummary(summaryData);
-      setAlerts(alertsData);
-    } catch (err) {
-      console.error("Data loading error:", err);
-      setError("تعذر تحميل البيانات من الخادم. تحققي من اتصال API.");
-    } finally {
-      setLoading(false);
-    }
+  if (!user) {
+    setSummary(null);
+    setAlerts([]);
+    setError("سجّلي الدخول أولًا لتحميل البيانات.");
+    return;
   }
+
+  setLoading(true);
+  setError("");
+
+  try {
+    const token = await user.getIdToken();
+
+    const headers = {
+      Authorization: `Bearer ${token}`,
+    };
+
+    const [summaryResponse, alertsResponse] = await Promise.all([
+      fetch(`${API_BASE}/api/summary`, { headers }),
+      fetch(`${API_BASE}/api/alerts`, { headers }),
+    ]);
+
+    if (summaryResponse.status === 401 || alertsResponse.status === 401) {
+      throw new Error("انتهت صلاحية التحقق. سجّلي الخروج ثم ادخلي مرة أخرى.");
+    }
+
+    if (!summaryResponse.ok || !alertsResponse.ok) {
+      throw new Error("تعذر تحميل بيانات الخادم.");
+    }
+
+    const summaryData: Summary = await summaryResponse.json();
+    const alertsData: SecurityAlert[] = await alertsResponse.json();
+
+    setSummary(summaryData);
+    setAlerts(alertsData);
+  } catch (err) {
+    console.error("Data loading error:", err);
+    setError(
+      err instanceof Error
+        ? err.message
+        : "تعذر تحميل البيانات من الخادم."
+    );
+  } finally {
+    setLoading(false);
+  }
+}
 
   // تحميل البيانات عند تسجيل الدخول وتحديثها كل 30 ثانية
   useEffect(() => {

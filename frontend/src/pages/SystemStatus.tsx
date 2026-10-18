@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import { auth } from "../firebase";
 
 type Props = {
 apiBase: string;
@@ -17,22 +18,36 @@ const checkConnection = useCallback(async () => {
     setErrorMessage("");
 
     try {
-    const response = await fetch(`${apiBase}/api/summary`);
+    const user = auth.currentUser;
+
+    if (!user) {
+        throw new Error("يجب تسجيل الدخول أولًا.");
+    }
+
+    const token = await user.getIdToken();
+
+    const response = await fetch(`${apiBase}/api/summary`, {
+        headers: {
+        Authorization: `Bearer ${token}`,
+        },
+    });
 
     if (!response.ok) {
         throw new Error(`استجاب الخادم بالرمز ${response.status}`);
     }
 
     await response.json();
+
     setStatus("online");
     setLastCheck(new Date().toLocaleString("ar-SA"));
     } catch (error) {
     setStatus("offline");
     setLastCheck(new Date().toLocaleString("ar-SA"));
+
     setErrorMessage(
         error instanceof Error
         ? error.message
-        : "تعذر الاتصال بالخادم.",
+        : "تعذر الاتصال بالخادم."
     );
     }
 }, [apiBase]);
@@ -94,7 +109,7 @@ return (
             <span className="stat-icon">◷</span>
         </div>
         <p>{lastCheck}</p>
-        <small>وقت الفحص في المتصفح</small>
+    <small>وقت الفحص في المتصفح</small>
         </article>
     </section>
 
@@ -104,6 +119,7 @@ return (
             <h3>تفاصيل الاتصال</h3>
             <p>نتيجة فحص نقطة ملخص البيانات.</p>
         </div>
+
         <span
             className={`risk ${
             status === "online"
@@ -118,7 +134,9 @@ return (
         </div>
 
         {status === "checking" && (
-        <div className="notice-panel">جارٍ التحقق من اتصال الخادم...</div>
+        <div className="notice-panel">
+            جارٍ التحقق من اتصال الخادم...
+        </div>
         )}
 
         {status === "online" && (
@@ -134,8 +152,8 @@ return (
         )}
 
         <p className="chart-note">
-        نجاح الفحص يؤكد استجابة نقطة API فقط، ولا يثبت أن جميع أجهزة الشبكة
-        أو خدمات البنية التحتية تعمل.
+        نجاح الفحص يؤكد استجابة نقطة API فقط، ولا يثبت أن جميع أجهزة
+        الشبكة أو خدمات البنية التحتية تعمل.
         </p>
     </section>
     </main>
