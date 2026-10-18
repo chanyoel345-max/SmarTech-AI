@@ -4,7 +4,7 @@ from typing import Any
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Depends
-from firebase_auth import verify_firebase_token
+from backend.firebase_auth import verify_firebase_token
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
