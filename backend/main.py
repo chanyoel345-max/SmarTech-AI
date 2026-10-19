@@ -28,15 +28,11 @@ allowed_origins = [
     ).split(",")
     if origin.strip()
 ]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+allow_origins=[
+    "https://smartech-ai.netlify.app",
+    "http://localhost:5173",
+    "http://localhost:5176",
+],
 
 class AssistantRequest(BaseModel):
     question: str
