@@ -1,5 +1,6 @@
 
 import os
+import ipaddress
 from pathlib import Path
 from typing import Any
 
@@ -206,7 +207,109 @@ def get_summary(
     }
 
 
+@app.get("/api/ip-analysis/{ip_address}")
+def analyze_ip(
+    ip_address: str,
+    current_user: dict = Depends(verify_firebase_token),
+) -> dict[str, Any]:
+    # التحقق من صحة عنوان IP.
+    try:
+        searched_ip = str(ipaddress.ip_address(ip_address.strip()))
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="عنوان IP غير صالح. تحققي من العنوان وأعيدي المحاولة.",
+        )
+
+    # قراءة السجلات الفعلية.
+    rows = [enrich_alert(row) for row in read_alerts()]
+
+    # البحث عن العنوان المطلوب.
+    matching_rows = [
+        row for row in rows
+        if str(row.get("source_ip", "")).strip() == searched_ip
+    ]
+
+    if not matching_rows:
+        return {
+            "ip_address": searched_ip,
+            "found": False,
+            "total_events": 0,
+            "failed_login_events": 0,
+            "failed_attempts_recorded": 0,
+            "risk_level": "Unknown",
+            "usernames": [],
+            "events": [],
+            "message": "لم يُعثر على هذا العنوان في السجلات المتاحة.",
+        }
+
+    # تحديد أحداث الدخول الفاشلة.
+    failed_events = [
+        row for row in matching_rows
+        if (
+            "fail" in str(row.get("event_type", "")).lower()
+            or "فشل" in str(row.get("event_type", ""))
+        )
+    ]
+
+    # جمع عدد المحاولات المسجلة إن كان الحقل متوفرًا.
+    failed_attempts_recorded = 0
+    for row in failed_events:
+        try:
+            value = int(float(row.get("failed_attempts", 0) or 0))
+            failed_attempts_recorded += max(value, 0)
+        except (TypeError, ValueError, OverflowError):
+            # إذا كانت القيمة غير صالحة، نتركها دون احتساب.
+            continue
+
+    # اختيار أعلى مستوى خطورة موجود في السجلات.
+    risk_priority = {
+        "Unknown": 0,
+        "Low": 1,
+        "Medium": 2,
+        "High": 3,
+    }
+    risk_level = max(
+        (row["risk_level"] for row in matching_rows),
+        key=lambda risk: risk_priority.get(risk, 0),
+    )
+
+    usernames = sorted({
+        str(row.get("username", "")).strip()
+        for row in matching_rows
+        if str(row.get("username", "")).strip()
+        and str(row.get("username", "")).strip() != "Unknown"
+    })
+
+    return {
+        "ip_address": searched_ip,
+        "found": True,
+        "total_events": len(matching_rows),
+        "failed_login_events": len(failed_events),
+        "failed_attempts_recorded": failed_attempts_recorded,
+        "risk_level": risk_level,
+        "usernames": usernames,
+        "events": sorted(
+            matching_rows,
+            key=lambda row: str(row.get("timestamp", "")),
+            reverse=True,
+        ),
+        "message": (
+            "مستوى الخطورة مستمد من تصنيفات السجلات المتاحة، "
+            "ولا يُثبت وحده وجود هجوم."
+        ),
+    }
 @app.get("/api/alerts")
+def get_alerts(
+    current_user: dict = Depends(verify_firebase_token),
+) -> list[dict[str, Any]]:
+    rows = [enrich_alert(row) for row in read_alerts()]
+
+    return sorted(
+        rows,
+        key=lambda row: str(row.get("timestamp", "")),
+        reverse=True,
+    )
 def get_alerts(
     current_user: dict = Depends(verify_firebase_token),
 ) -> list[dict[str, Any]]:
