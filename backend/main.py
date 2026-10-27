@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import ipaddress
 import json
 import os
@@ -242,13 +242,11 @@ def extract_accounts(events: list[dict[str, Any]]) -> list[str]:
 
 def normalize_risk(value: Any) -> str:
     text = str(value or "").strip().lower()
-    if text in {
-        "critical", "high", "severe", "ط¹ط§ظ„ظٹ", "ط¹ط§ظ„ظٹط©", "ظ…ط±طھظپط¹", "ظ…ط±طھظپط¹ط©"
-    }:
+    if text in {"critical", "high", "severe", "عالي", "عالية", "مرتفع", "مرتفعة"}:
         return "High"
-    if text in {"medium", "moderate", "ظ…طھظˆط³ط·", "ظ…طھظˆط³ط·ط©"}:
+    if text in {"medium", "moderate", "متوسط", "متوسطة"}:
         return "Medium"
-    if text in {"low", "informational", "info", "ظ…ظ†ط®ظپط¶", "ظ…ظ†ط®ظپط¶ط©"}:
+    if text in {"low", "informational", "info", "منخفض", "منخفضة"}:
         return "Low"
     return "Unknown"
 
@@ -291,8 +289,13 @@ def recommendation_for(risk: str, event: str, failed_login: bool) -> str:
 
 
 def normalize_event(row: dict[str, Any]) -> dict[str, Any]:
-    """Normalize legacy rows and Windows Sentinel alert rows for the frontend."""
+    """Normalize rows and explicitly label whether they are demo or live Windows data."""
     result = dict(row)
+    source_type = str(row.get("source_type", "")).strip().lower()
+    if source_type != "windows_live":
+        source_type = "demo"
+    result["source_type"] = source_type
+    result["source_label"] = "أحداث Windows مباشرة" if source_type == "windows_live" else "بيانات تجريبية"
 
     event = str(
         first_value(
@@ -515,6 +518,8 @@ def get_summary(
         "medium_risk_events": sum(1 for row in events if row["risk_level"] == "Medium"),
         "low_risk_events": sum(1 for row in events if row["risk_level"] == "Low"),
         "unknown_risk_events": sum(1 for row in events if row["risk_level"] == "Unknown"),
+        "live_windows_events": len(live_rows),
+        "demo_events": sum(1 for row in events if row.get("source_type") != "windows_live"),
     }
 
 
@@ -525,12 +530,18 @@ def get_alerts(
         default=None, description="Optional risk filter: High, Medium, Low, Unknown"
     ),
     limit: int = Query(default=200, ge=1, le=1000),
+    source: str = Query(default="all", description="Data source: all, demo, or windows_live"),
 ) -> list[dict[str, Any]]:
     events = get_normalized_events()
+    normalized_source = source.strip().lower()
+    if normalized_source not in {"all", "demo", "windows_live"}:
+        raise HTTPException(status_code=400, detail="Invalid source filter. Use all, demo, or windows_live.")
+    if normalized_source != "all":
+        events = [row for row in events if row.get("source_type") == normalized_source]
     if risk:
         normalized_filter = normalize_risk(risk)
         if normalized_filter == "Unknown" and risk.strip().lower() not in {
-            "unknown", "ط؛ظٹط± ظ…ط¹ط±ظˆظپ"
+            "unknown", "غير معروف", "غير محدد", "غير محددة"
         }:
             raise HTTPException(status_code=400, detail="Invalid risk filter.")
         events = [row for row in events if row["risk_level"] == normalized_filter]
@@ -743,6 +754,8 @@ def analyze_anomalies(
             "event_type": row.get("event_type", "Unknown event"),
             "failed_attempts": attempts,
             "risk_level": row.get("risk_level", "Unknown"),
+            "source_type": row.get("source_type", "demo"),
+            "source_label": row.get("source_label", "بيانات تجريبية"),
             "is_anomaly": predictions[index] == -1,
             "anomaly_score": relative_scores[index],
             "model_decision_value": round(decision_values[index], 5),
@@ -756,10 +769,15 @@ def analyze_anomalies(
         "model_type": "Unsupervised machine-learning anomaly detection",
         "sample_size": len(events),
         "live_windows_events": live_count,
+        "demo_events": len(events) - live_count,
+        "source_count_note": "كل سجل يحمل مصدره: أحداث Windows مباشرة أو بيانات تجريبية. يظل تحليل الشذوذ تجريبيًا.",
         "scored_records": len(ranked),
         "anomalies_flagged": sum(1 for row in ranked if row["is_anomaly"]),
         "score_note": "الدرجة ترتيب نسبي بين السجلات المحملة (0–100)، وليست احتمالًا لوقوع هجوم.",
-        "data_note": "النموذج يقيّم السجلات المتاحة فقط. ستظل النتائج تجريبية مع عينة صغيرة، ويُنصح ببيانات أكثر وتحقق بشري قبل أي استجابة.",
+        "data_note": (
+            "النموذج يقيّم السجلات المتاحة فقط. العينة الحالية صغيرة جدًا؛ النتائج استكشافية "
+            "ولا تثبت وقوع هجوم أو دقة النموذج. اجمعي بيانات مصرحًا بها أكثر وراجعي النتائج بشريًا."
+        ),
         "monitoring_note": "الأحداث الحية لا تصل إلا عند تشغيل جامع Windows المحلي وضبط NEXUSAI_INGEST_TOKEN؛ هذا لا يراقب بقية الشبكة تلقائيًا.",
         "results": ranked,
     }

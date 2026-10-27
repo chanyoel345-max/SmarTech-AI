@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
@@ -739,141 +739,6 @@ function IpSearchPage() {
 
 }
 
-
-type AIAnomaly = {
-  timestamp?: string;
-  username?: string;
-  source_ip?: string;
-  event_type?: string;
-  failed_attempts?: number;
-  risk_level?: string;
-  is_anomaly?: boolean;
-  anomaly_score?: number;
-  reasons?: string[];
-};
-
-type AIAnomalyResponse = {
-  model: string;
-  sample_size: number;
-  live_windows_events: number;
-  scored_records: number;
-  anomalies_flagged: number;
-  score_note: string;
-  data_note: string;
-  monitoring_note: string;
-  results: AIAnomaly[];
-};
-
-function AIAnomalyPanel() {
-  const [result, setResult] = useState<AIAnomalyResponse | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const runAnalysis = useCallback(async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      setError("سجّلي الدخول أولًا لتشغيل تحليل الشذوذ.");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    try {
-      let token = await user.getIdToken();
-      const call = (accessToken: string) => fetch(`${API_BASE}/api/ai/anomalies`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
-      });
-      let response = await call(token);
-      if (response.status === 401 && auth.currentUser) {
-        token = await auth.currentUser.getIdToken(true);
-        response = await call(token);
-      }
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(
-          typeof body?.detail === "string"
-            ? body.detail
-            : `تعذر تشغيل تحليل الشذوذ (HTTP ${response.status}).`,
-        );
-      }
-      setResult(body as AIAnomalyResponse);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذر الاتصال بخدمة تحليل الشذوذ.");
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void runAnalysis();
-  }, [runAnalysis]);
-
-  const cardStyle = {
-    padding: "18px",
-    borderRadius: "14px",
-    border: "1px solid var(--border, #263248)",
-    background: "var(--card, #101827)",
-    color: "var(--text, #e8eef8)",
-  } as const;
-
-  return (
-    <section aria-labelledby="ai-anomaly-title" style={{ display: "grid", gap: "14px", marginTop: "24px" }}>
-      <div style={cardStyle}>
-        <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-          <div>
-            <p style={{ margin: "0 0 6px", color: "#55e6a5", fontWeight: 700, fontSize: "12px", letterSpacing: ".08em" }}>MACHINE LEARNING</p>
-            <h2 id="ai-anomaly-title" style={{ margin: "0 0 8px", fontSize: "21px" }}>كشف الأنشطة غير المعتادة</h2>
-            <p style={{ margin: 0, color: "var(--muted, #aab5c7)", lineHeight: 1.7 }}>
-              يستخدم النموذج غير الخاضع للإشراف Isolation Forest لترتيب السجلات حسب الشذوذ النسبي.
-            </p>
-          </div>
-          <button type="button" className="secondary-button" onClick={() => void runAnalysis()} disabled={busy}>
-            {busy ? "جارٍ التحليل..." : "إعادة تحليل السجلات"}
-          </button>
-        </div>
-        {error && <div role="alert" style={{ marginTop: "14px", padding: "12px", borderRadius: "10px", background: "rgba(220, 70, 70, .12)", color: "#ffb4b4" }}>{error}</div>}
-        {result && (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: "10px", marginTop: "18px" }}>
-              {[
-                ["النموذج", result.model],
-                ["السجلات المحللة", String(result.sample_size)],
-                ["سجلات اعتبرها النموذج شاذة", String(result.anomalies_flagged)],
-                ["أحداث Windows المستلمة", String(result.live_windows_events)],
-              ].map(([label, value]) => (
-                <div key={label} style={{ padding: "12px", borderRadius: "10px", background: "rgba(127, 146, 170, .10)" }}>
-                  <div style={{ color: "var(--muted, #aab5c7)", fontSize: "12px", marginBottom: "6px" }}>{label}</div>
-                  <strong style={{ fontSize: "18px", overflowWrap: "anywhere" }}>{value}</strong>
-                </div>
-              ))}
-            </div>
-            <div style={{ overflowX: "auto", marginTop: "16px" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "620px" }}>
-                <thead><tr>{["التوقيت", "المستخدم", "عنوان IP", "الدرجة النسبية", "نتيجة النموذج", "مؤشرات المراجعة"].map((h) => <th key={h} style={{ padding: "10px", textAlign: "right", borderBottom: "1px solid var(--border, #263248)" }}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {result.results.slice(0, 8).map((item, index) => (
-                    <tr key={`${item.timestamp}-${item.source_ip}-${index}`}>
-                      <td style={{ padding: "10px", borderBottom: "1px solid var(--border, #263248)" }}>{formatTimestamp(item.timestamp)}</td>
-                      <td style={{ padding: "10px", borderBottom: "1px solid var(--border, #263248)" }}>{item.username || "غير معروف"}</td>
-                      <td dir="ltr" style={{ padding: "10px", borderBottom: "1px solid var(--border, #263248)" }}>{item.source_ip || "N/A"}</td>
-                      <td style={{ padding: "10px", borderBottom: "1px solid var(--border, #263248)" }}>{item.anomaly_score ?? 0}/100</td>
-                      <td style={{ padding: "10px", borderBottom: "1px solid var(--border, #263248)", color: item.is_anomaly ? "#ffbd69" : "#91dfbd", fontWeight: 700 }}>{item.is_anomaly ? "غير معتاد للمراجعة" : "لم يصنفه النموذج كشذوذ"}</td>
-                      <td style={{ padding: "10px", borderBottom: "1px solid var(--border, #263248)", lineHeight: 1.6 }}>{(item.reasons || []).join(" ")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p style={{ margin: "12px 0 0", color: "var(--muted, #aab5c7)", fontSize: "12px", lineHeight: 1.8 }}>{result.score_note} {result.data_note}</p>
-            <p style={{ margin: "4px 0 0", color: "var(--muted, #aab5c7)", fontSize: "12px", lineHeight: 1.8 }}>{result.monitoring_note}</p>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
-
 export default function App() {
 
   const [userChecked, setUserChecked] = useState(false);
@@ -887,6 +752,8 @@ export default function App() {
   const [summary, setSummary] = useState<Summary | null>(null);
 
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
+
+  const [sourceFilter, setSourceFilter] = useState<"all" | "demo" | "windows_live">("all");
 
   const [loading, setLoading] = useState(false);
 
@@ -1057,6 +924,63 @@ export default function App() {
 
   }
 
+  const getSourceType = (alert: SecurityAlert): "demo" | "windows_live" => {
+    const row = alert as unknown as Record<string, unknown>;
+    return String(row.source_type ?? "demo").toLowerCase() === "windows_live"
+      ? "windows_live"
+      : "demo";
+  };
+
+  const liveAlerts = alerts.filter((alert) => getSourceType(alert) === "windows_live");
+  const demoAlerts = alerts.filter((alert) => getSourceType(alert) === "demo");
+  const visibleAlerts = sourceFilter === "all"
+    ? alerts
+    : sourceFilter === "windows_live" ? liveAlerts : demoAlerts;
+
+  function renderDataSourcePanel() {
+    if (!["analysis", "alerts", "recommendations", "logs"].includes(page)) return null;
+    const buttonStyle = (selected: boolean): CSSProperties => ({
+      border: selected ? "1px solid #2563eb" : "1px solid var(--border-color, #d1d5db)",
+      background: selected ? "rgba(37, 99, 235, 0.10)" : "transparent",
+      color: "var(--text-color, inherit)",
+      borderRadius: 10,
+      padding: "8px 12px",
+      cursor: "pointer",
+      font: "inherit",
+    });
+    return (
+      <section dir="rtl" aria-label="مصادر بيانات الأمن" style={{
+        border: "1px solid var(--border-color, #d1d5db)",
+        borderRadius: 14,
+        padding: 16,
+        marginBottom: 16,
+        display: "grid",
+        gap: 12,
+      }}>
+        <div>
+          <strong>مصدر السجلات المعروضة</strong>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+            البيانات التجريبية منفصلة عن أحداث Windows الحقيقية المرسلة من هذا الجهاز.
+          </div>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <button type="button" style={buttonStyle(sourceFilter === "all")} onClick={() => setSourceFilter("all")}>
+            الكل ({alerts.length})
+          </button>
+          <button type="button" style={buttonStyle(sourceFilter === "demo")} onClick={() => setSourceFilter("demo")}>
+            بيانات تجريبية ({demoAlerts.length})
+          </button>
+          <button type="button" style={buttonStyle(sourceFilter === "windows_live")} onClick={() => setSourceFilter("windows_live")}>
+            Windows مباشرة ({liveAlerts.length})
+          </button>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.8 }}>
+          أحداث Windows تخص الجهاز الذي يشغّل الجامع فقط؛ اختيار المصدر يفلتر قوائم السجلات في هذه الصفحات. تحليل الشذوذ يبقى مبنيًا على السجلات التي يستقبلها الخادم.
+        </div>
+      </section>
+    );
+  }
+
   function renderPage() {
 
     if (page === "ip-search") {
@@ -1069,24 +993,19 @@ export default function App() {
 
       case "analysis":
 
-      return (
-        <>
-          <SecurityAnalysis alerts={alerts} loading={loading} />
-          <AIAnomalyPanel />
-        </>
-      );
+      return <>{renderDataSourcePanel()}<SecurityAnalysis alerts={visibleAlerts} loading={loading} /></>;
 
       case "alerts":
 
-      return <Alerts alerts={alerts} loading={loading} />;
+      return <>{renderDataSourcePanel()}<Alerts alerts={visibleAlerts} loading={loading} /></>;
 
       case "recommendations":
 
-      return <Recommendations alerts={alerts} loading={loading} />;
+      return <>{renderDataSourcePanel()}<Recommendations alerts={visibleAlerts} loading={loading} /></>;
 
       case "logs":
 
-      return <LogAnalysis alerts={alerts} loading={loading} />;
+      return <>{renderDataSourcePanel()}<LogAnalysis alerts={visibleAlerts} loading={loading} /></>;
 
       case "status":
 
