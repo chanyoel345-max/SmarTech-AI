@@ -1,15 +1,25 @@
-﻿import ipaddress
+import hashlib
+import ipaddress
 import json
 import os
 import re
+import secrets
+import sqlite3
+import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Path as ApiPath, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Path as ApiPath, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+try:
+    from sklearn.ensemble import IsolationForest
+except ImportError:  # Keep the API running even if the optional ML package is missing.
+    IsolationForest = None
 
 from backend.firebase_auth import verify_firebase_token
 
@@ -41,6 +51,17 @@ SENTINEL_SUMMARY_FILE = Path(
 LEGACY_DATA_FILE = Path(
     os.getenv("NEXUSAI_DATA_FILE", str(ROOT_DIR / "data" / "analysis_results.csv"))
 )
+
+# Live Windows Security events received from the optional local collector.
+# Render's filesystem is ephemeral on the free tier; use a persistent disk path
+# via NEXUSAI_LIVE_EVENTS_DB if one is configured.
+LIVE_EVENTS_DB = Path(
+    os.getenv(
+        "NEXUSAI_LIVE_EVENTS_DB",
+        str(Path(tempfile.gettempdir()) / "nexusai_live_events.sqlite3"),
+    )
+)
+INGEST_TOKEN = os.getenv("NEXUSAI_INGEST_TOKEN", "").strip()
 
 app = FastAPI(
     title="NexusAI Sentinel Security Analytics API",
@@ -88,6 +109,10 @@ class AssistantRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
 
 
+class WindowsEventBatch(BaseModel):
+    events: list[dict[str, Any]] = Field(min_length=1, max_length=100)
+
+
 def active_alerts_file() -> Path:
     """Prefer Sentinel output; use the old analytics CSV only as a fallback."""
     if SENTINEL_ALERTS_FILE.is_file():
@@ -98,20 +123,74 @@ def active_alerts_file() -> Path:
     return SENTINEL_ALERTS_FILE
 
 
-def read_alerts() -> list[dict[str, Any]]:
-    """Read Sentinel alerts or the configured legacy analytics CSV."""
-    data_file = active_alerts_file()
-    if not data_file.is_file():
-        return []
+def _connect_live_db() -> sqlite3.Connection:
+    LIVE_EVENTS_DB.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(str(LIVE_EVENTS_DB), timeout=10)
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS live_events ("
+        "event_uid TEXT PRIMARY KEY, payload TEXT NOT NULL, received_at TEXT NOT NULL)"
+    )
+    connection.commit()
+    return connection
 
+
+def read_live_events(limit: int = 5000) -> list[dict[str, Any]]:
+    """Read recent collector events from local SQLite storage."""
+    connection: sqlite3.Connection | None = None
     try:
-        frame = pd.read_csv(data_file, dtype=str, keep_default_na=False)
-        return frame.to_dict(orient="records")
-    except (OSError, UnicodeError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="The security analysis data file could not be read.",
-        ) from exc
+        connection = _connect_live_db()
+        rows = connection.execute(
+            "SELECT payload FROM live_events ORDER BY rowid DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [json.loads(row[0]) for row in reversed(rows)]
+    except (OSError, sqlite3.Error, json.JSONDecodeError):
+        # A live collector database failure should not take down CSV analytics.
+        return []
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _save_live_events(rows: list[dict[str, Any]]) -> int:
+    accepted = 0
+    connection = _connect_live_db()
+    try:
+        for raw in rows:
+            record = dict(raw)
+            host = str(record.get("source_host", "unknown-host")).strip() or "unknown-host"
+            record_id = str(record.get("record_id", "")).strip()
+            identity = f"{host}|{record_id}" if record_id else json.dumps(
+                record, sort_keys=True, ensure_ascii=False, default=str
+            )
+            event_uid = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+            record["source_type"] = "windows_live"
+            record["received_at"] = datetime.now(timezone.utc).isoformat()
+            cursor = connection.execute(
+                "INSERT OR IGNORE INTO live_events(event_uid, payload, received_at) VALUES (?, ?, ?)",
+                (event_uid, json.dumps(record, ensure_ascii=False, default=str), record["received_at"]),
+            )
+            accepted += max(cursor.rowcount, 0)
+        connection.commit()
+    finally:
+        connection.close()
+    return accepted
+
+
+def read_alerts() -> list[dict[str, Any]]:
+    """Read Sentinel/legacy CSV rows and append real Windows events received by the collector."""
+    records: list[dict[str, Any]] = []
+    data_file = active_alerts_file()
+    if data_file.is_file():
+        try:
+            frame = pd.read_csv(data_file, dtype=str, keep_default_na=False)
+            records = frame.to_dict(orient="records")
+        except (OSError, UnicodeError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail="The security analysis data file could not be read.",
+            ) from exc
+    records.extend(read_live_events())
+    return records
 
 
 def read_sentinel_summary() -> dict[str, Any]:
@@ -422,13 +501,15 @@ def get_summary(
         "failed_4625_events",
     )
 
+    live_rows = [row for row in events if row.get("source_type") == "windows_live"]
+    live_failed = sum(1 for row in live_rows if is_failed_login(row))
+
     return {
-        # Prefer actual source-event totals from the engine summary. If unavailable,
-        # fall back to the number of rows in the active CSV.
-        "total_events": total_events if total_events is not None else len(events),
+        # Keep the source summary as the baseline, and add any newly ingested live events.
+        "total_events": (total_events if total_events is not None else len(events) - len(live_rows)) + len(live_rows),
         "failed_login_events": (
-            failed_logins if failed_logins is not None
-            else sum(1 for row in events if is_failed_login(row))
+            (failed_logins if failed_logins is not None else sum(1 for row in events if is_failed_login(row) and row.get("source_type") != "windows_live"))
+            + live_failed
         ),
         "high_risk_events": sum(1 for row in events if row["risk_level"] == "High"),
         "medium_risk_events": sum(1 for row in events if row["risk_level"] == "Medium"),
@@ -530,6 +611,157 @@ def analyze_ip(
             if matching_events
             else "No matching events or alerts were found in the available data."
         ),
+    }
+
+
+@app.post("/api/ingest/windows-events", tags=["Live Monitoring"])
+def ingest_windows_events(
+    batch: WindowsEventBatch,
+    x_nexusai_ingest_token: str = Header(default="", alias="X-NexusAI-Ingest-Token"),
+) -> dict[str, Any]:
+    """Receive 4624/4625 Windows Security events from the local collector using a shared secret."""
+    if not INGEST_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="Live ingestion is not configured. Set NEXUSAI_INGEST_TOKEN in the backend environment.",
+        )
+    if not secrets.compare_digest(x_nexusai_ingest_token, INGEST_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid collector token.")
+
+    cleaned: list[dict[str, Any]] = []
+    skipped = 0
+    for raw in batch.events:
+        event_id = str(raw.get("event_id", raw.get("EventID", ""))).strip()
+        if event_id not in {"4624", "4625"}:
+            skipped += 1
+            continue
+        username = str(raw.get("username", raw.get("TargetUserName", "Unknown"))).strip() or "Unknown"
+        source_ip = str(raw.get("source_ip", raw.get("ip_address", raw.get("IpAddress", "N/A")))).strip() or "N/A"
+        timestamp = str(raw.get("timestamp", "")).strip() or datetime.now(timezone.utc).isoformat()
+        is_failed = event_id == "4625"
+        cleaned.append({
+            "event_id": event_id,
+            "record_id": str(raw.get("record_id", "")).strip(),
+            "source_host": str(raw.get("source_host", "Unknown host")).strip() or "Unknown host",
+            "timestamp": timestamp,
+            "username": username,
+            "source_ip": source_ip,
+            "event_type": "login_failed" if is_failed else "login_success",
+            "failed_attempts": 1 if is_failed else 0,
+            "risk_level": "Low",
+            "is_failed_login": is_failed,
+            "recommendation": recommendation_for("Low", "login_failed" if is_failed else "login_success", is_failed),
+        })
+
+    accepted = _save_live_events(cleaned) if cleaned else 0
+    return {
+        "accepted": accepted,
+        "skipped": skipped,
+        "received": len(batch.events),
+        "stored_live_events": len(read_live_events()),
+        "message": "Windows Security events received. Repeated event IDs from the same host are ignored.",
+    }
+
+
+def _hour_feature(value: Any) -> float:
+    text = str(value or "")
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return float(parsed.hour) + float(parsed.minute) / 60.0
+    except (TypeError, ValueError):
+        return 12.0
+
+
+@app.get("/api/ai/anomalies", tags=["AI Analytics"])
+def analyze_anomalies(
+    current_user: dict = Depends(verify_firebase_token),
+) -> dict[str, Any]:
+    """Rank available alert/event rows with an Isolation Forest anomaly detector."""
+    if IsolationForest is None:
+        raise HTTPException(
+            status_code=503,
+            detail="scikit-learn is not installed on the backend. Add scikit-learn to the backend requirements and redeploy.",
+        )
+
+    events = get_normalized_events()
+    if len(events) < 4:
+        raise HTTPException(
+            status_code=422,
+            detail=f"The anomaly detector needs at least 4 records; only {len(events)} are available.",
+        )
+
+    ip_failures: dict[str, int] = {}
+    user_failures: dict[str, int] = {}
+    for row in events:
+        if is_failed_login(row):
+            ip = str(row.get("source_ip", "N/A")).strip() or "N/A"
+            username = str(row.get("username", "Unknown")).strip() or "Unknown"
+            ip_failures[ip] = ip_failures.get(ip, 0) + 1
+            user_failures[username] = user_failures.get(username, 0) + 1
+
+    feature_rows: list[list[float]] = []
+    for row in events:
+        ip = str(row.get("source_ip", "N/A")).strip() or "N/A"
+        username = str(row.get("username", "Unknown")).strip() or "Unknown"
+        attempts = safe_nonnegative_int(row.get("failed_attempts")) or 0
+        failed = is_failed_login(row)
+        feature_rows.append([
+            float(attempts),
+            float(failed),
+            float(risk_priority(str(row.get("risk_level", "Unknown")))),
+            float(ip_failures.get(ip, 0) if failed else 0),
+            float(user_failures.get(username, 0) if failed else 0),
+            _hour_feature(row.get("timestamp")),
+        ])
+
+    model = IsolationForest(n_estimators=100, contamination="auto", random_state=42)
+    model.fit(feature_rows)
+    decision_values = [float(value) for value in model.decision_function(feature_rows)]
+    predictions = [int(value) for value in model.predict(feature_rows)]
+    order = sorted(range(len(events)), key=lambda index: decision_values[index])
+    relative_scores = {index: round(100 * (len(order) - 1 - rank) / max(len(order) - 1, 1)) for rank, index in enumerate(order)}
+
+    ranked: list[dict[str, Any]] = []
+    for index, row in enumerate(events):
+        failed = is_failed_login(row)
+        ip = str(row.get("source_ip", "N/A")).strip() or "N/A"
+        username = str(row.get("username", "Unknown")).strip() or "Unknown"
+        attempts = safe_nonnegative_int(row.get("failed_attempts")) or 0
+        reasons: list[str] = []
+        if attempts >= 5:
+            reasons.append(f"عدد المحاولات المسجل في الصف مرتفع ({attempts}).")
+        if failed and ip_failures.get(ip, 0) >= 2:
+            reasons.append(f"تكرر مصدر IP في {ip_failures[ip]} سجلات دخول فاشل.")
+        if username.lower() in {"unknown", "n/a", "none", ""} and failed:
+            reasons.append("اسم الحساب غير محدد في السجل.")
+        if not reasons:
+            reasons.append("ترتيب شذوذ نسبي مقارنةً ببقية السجلات المحملة.")
+        ranked.append({
+            "timestamp": row.get("timestamp", "N/A"),
+            "username": username,
+            "source_ip": ip,
+            "event_type": row.get("event_type", "Unknown event"),
+            "failed_attempts": attempts,
+            "risk_level": row.get("risk_level", "Unknown"),
+            "is_anomaly": predictions[index] == -1,
+            "anomaly_score": relative_scores[index],
+            "model_decision_value": round(decision_values[index], 5),
+            "reasons": reasons,
+        })
+
+    ranked.sort(key=lambda item: item["anomaly_score"], reverse=True)
+    live_count = sum(1 for row in events if row.get("source_type") == "windows_live")
+    return {
+        "model": "IsolationForest",
+        "model_type": "Unsupervised machine-learning anomaly detection",
+        "sample_size": len(events),
+        "live_windows_events": live_count,
+        "scored_records": len(ranked),
+        "anomalies_flagged": sum(1 for row in ranked if row["is_anomaly"]),
+        "score_note": "الدرجة ترتيب نسبي بين السجلات المحملة (0–100)، وليست احتمالًا لوقوع هجوم.",
+        "data_note": "النموذج يقيّم السجلات المتاحة فقط. ستظل النتائج تجريبية مع عينة صغيرة، ويُنصح ببيانات أكثر وتحقق بشري قبل أي استجابة.",
+        "monitoring_note": "الأحداث الحية لا تصل إلا عند تشغيل جامع Windows المحلي وضبط NEXUSAI_INGEST_TOKEN؛ هذا لا يراقب بقية الشبكة تلقائيًا.",
+        "results": ranked,
     }
 
 

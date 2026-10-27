@@ -9,3 +9,4 @@ SQLAlchemy
 python-docx
 pandas
 firebase-admin
+scikit-learn>=1.4,<2.0
