@@ -91,8 +91,8 @@ const title =
         : "مرحبًا بعودتك";
 
 return (
-    <main style={styles.page} dir="rtl">
-    <section style={styles.panel}>
+    <main className="auth-page" style={styles.page} dir="rtl">
+    <section className="auth-panel" style={styles.panel}>
         <div style={styles.brand}>
         <div style={styles.logo}>N</div>
         <div>
@@ -122,6 +122,7 @@ return (
             البريد الإلكتروني
         </label>
         <input
+            className="auth-input"
             id="email"
             type="email"
             autoComplete="email"
@@ -137,8 +138,9 @@ return (
             <label htmlFor="password" style={styles.label}>
                 كلمة المرور
             </label>
-            <div style={styles.passwordWrapper}>
+            <div className="auth-password-wrapper" style={styles.passwordWrapper}>
                 <input
+                className="auth-password-input"
                 id="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete={
@@ -200,17 +202,6 @@ return (
                 type="button"
                 style={styles.link}
                 onClick={() => {
-                setMode("register");
-                setError("");
-                setMessage("");
-                }}
-            >
-                إنشاء حساب جديد
-            </button>
-            <button
-                type="button"
-                style={styles.link}
-                onClick={() => {
                 setMode("reset");
                 setError("");
                 setMessage("");
@@ -254,7 +245,7 @@ onClick={onGoToRegister}
         </p>
     </section>
 
-    <aside style={styles.side}>
+    <aside className="auth-side" style={styles.side}>
         <div style={styles.grid} />
         <div style={styles.sideContent}>
         <div style={styles.icon}>⌘</div>

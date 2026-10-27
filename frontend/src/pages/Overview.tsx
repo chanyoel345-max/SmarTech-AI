@@ -51,19 +51,16 @@ export default function Overview({
     {
       label: "عالية",
       count: summary?.high_risk_events ?? 0,
-      color: "#fb626b",
       className: "high",
     },
     {
       label: "متوسطة",
       count: summary?.medium_risk_events ?? 0,
-      color: "#f5b94c",
       className: "medium",
     },
     {
       label: "منخفضة",
       count: summary?.low_risk_events ?? 0,
-      color: "#3dd6a0",
       className: "low",
     },
   ];
@@ -269,31 +266,48 @@ export default function Overview({
                 </thead>
 
                 <tbody>
-                  {alerts.slice(0, 5).map((alert, index) => (
-                    <tr
-                      key={`${alert.username}-${alert.ip_address}-${index}`}
-                    >
-                      <td>{alert.username || "غير معروف"}</td>
-                      <td>
-                        <code>{alert.ip_address || "—"}</code>
-                      </td>
-                      <td>{alert.failed_attempts}</td>
-                      <td>
-                        <span
-                          className={`risk ${
-                            ["high", "medium", "low"].includes(
-                              alert.risk_level.toLowerCase(),
-                            )
-                              ? alert.risk_level.toLowerCase()
-                              : ""
-                          }`}
-                        >
-                          {getArabicRisk(alert.risk_level)}
-                        </span>
-                      </td>
-                      <td>{alert.event || "—"}</td>
-                    </tr>
-                  ))}
+                  {alerts.slice(0, 5).map((alert, index) => {
+                    const rawRisk =
+                      alert.risk_level ||
+                      (alert as any).severity ||
+                      "";
+
+                    const risk = String(rawRisk).toLowerCase();
+
+                    const ip =
+                      alert.ip_address ||
+                      (alert as any).source_ip ||
+                      "—";
+
+                    const event =
+                      alert.event ||
+                      (alert as any).title ||
+                      "—";
+
+                    return (
+                      <tr
+                        key={`${alert.username}-${ip}-${index}`}
+                      >
+                        <td>{alert.username || "غير معروف"}</td>
+                        <td>
+                          <code>{ip}</code>
+                        </td>
+                        <td>{alert.failed_attempts ?? 0}</td>
+                        <td>
+                          <span
+                            className={`risk ${
+                              ["high", "medium", "low"].includes(risk)
+                                ? risk
+                                : ""
+                            }`}
+                          >
+                            {getArabicRisk(risk)}
+                          </span>
+                        </td>
+                        <td>{event}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
